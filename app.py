@@ -1,8 +1,13 @@
 from fastapi import FastAPI
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel,Field,computed_field
 from typing import Literal,Annotated
 import pickle
 import pandas as pd
+
+# Define city tiers
+tier_1_cities = ['Mumbai', 'Delhi', 'Bangalore', 'Hyderabad', 'Chennai', 'Kolkata', 'Pune', 'Ahmedabad']
+tier_2_cities = ['Jaipur', 'Lucknow', 'Kanpur', 'Nagpur', 'Indore', 'Bhopal', 'Visakhapatnam', 'Patna', 'Vadodara', 'Ludhiana']
 
 #import the ml model
 with open('model.pkl','rb') as f:
@@ -17,8 +22,8 @@ class UserInput(BaseModel):
     height:Annotated[float,Field(...,gt=0,lt=2.5, description='Height of the person')]
     income_lpa:Annotated[float,Field(...,gt=0, description='Annual salary  of the person in LPA')]
     smoker:Annotated[bool,Field(..., description='Is the person is smoker')]
-    city:Annotated[str,Field(...,gt=0,lt=2.5, description='The city of the person it belongs to')]
-    occupation:Annotated[literal['retired', 'freelancer', 'student', 'government_job',
+    city:Annotated[str,Field(..., description='The city of the person it belongs to')]
+    occupation:Annotated[Literal['retired', 'freelancer', 'student', 'government_job',
        'business_owner', 'unemployed', 'private_job'], Field(..., description='Occupation of the user')]
     
     @computed_field
@@ -55,3 +60,20 @@ class UserInput(BaseModel):
             return 2
         else:
             return 3
+
+@app.post('/predict')
+def predict_premium(data: UserInput):
+    input_df = pd.DataFrame([{
+        'bmi':data.bmi,
+        'age_group':data.age_group,
+        'lifestyle_risk':data.lifestyle_risk,
+        'city_tier':data.city_tier,
+        'income_lpa':data.income_lpa,
+        'occupation':data.occupation
+    }])
+
+    prediction=model.predict(input_df)[0]
+
+    return JSONResponse (status_code=200,content={'predicted category ':prediction})
+
+        
